@@ -1,9 +1,9 @@
 const CACHE_NAME = 'video-frame-extractor-cache-v1';
 const urlsToCache = [
-  '/scrub.html',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/GrabEr/scrub.html',
+  '/GrabEr/manifest.json',
+  '/GrabEr/icons/icon-192x192.png',
+  '/GrabEr/icons/icon-512x512.png',
   // External libraries (CDNs) will NOT be cached by this simple service worker
   // unless explicitly configured with more advanced Workbox strategies.
   // For now, assume they need network access.
