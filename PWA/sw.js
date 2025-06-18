@@ -1,14 +1,14 @@
 const CACHE_NAME = 'GrabEr-cache-v1';
 const urlsToCache = [
-    'pwa/hs2.html',
+    '/hs2.html',
    // './styles.css', // If you extract CSS to a separate file
     //'./script.js',  // If you extract JS to a separate file
     'https://cdn.tailwindcss.com',
     'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
     // Add paths to your icons if you create them
-    'pwa/icons/icon-192x192.png',
-    'pwa/icons/icon-512x512.png'
+    '/icons/icon-192x192.png',
+    '/icons/icon-512x512.png'
 ];
 
 // Install event: caches initial assets

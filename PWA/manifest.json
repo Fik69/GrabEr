@@ -2,7 +2,7 @@
   "name": "Video Frame Extractor",
   "short_name": "Graber",
   "description": "Extract frames from short videos.",
-  "start_url": "pwa/index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#8B5CF6",
