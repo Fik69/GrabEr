@@ -4,11 +4,372 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Frame Extractor</title>
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <script src="[https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js](https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js)"></script>
-    <script src="[https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js](https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js)"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js)"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js)"></script>
     <style>
-        /* ... your styles ... */
+        /* Base styles for the body */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #fafafa;
+            overflow-x: hidden; /* Prevent horizontal scrolling on the body */
+            padding-bottom: 80px; /* Space for the fixed footer */
+        }
+        /* Container to manage overall scrolling */
+        .scrollable-container {
+            width: 100vw; /* Full viewport width */
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+            overflow-y: auto; /* Allow vertical scrolling */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        /* Styling for violet-colored buttons - Added transparency */
+        .violetBtn {
+            background-color: rgba(139, 92, 246, 0.9); /* Original: #8B5CF6 */
+            transition: background-color 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+        }
+        .violetBtn:hover {
+            background-color: #7C3AED;
+        }
+        .violetBtn:focus {
+            outline: 2px solid #5B21B6;
+            outline-offset: 2px;
+        }
+        /* Utility class to prevent text selection */
+        .prevent-selection {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        /* Wrapper for the half-moon dial effect */
+        .half-moon-wrapper {
+            position: relative;
+            width: 300px; /* Same width as your dial-container */
+            height: 140px; /* Roughly half the height of your dial-container (280px / 2) */
+            overflow: hidden;
+            border-radius: 140px 140px 0 0; /* Creates the rounded top edge for the half-moon */
+            background-color: #E7CEFD; /* Matches your dial-background color */
+            margin-left: auto; /* Center the wrapper */
+            margin-right: auto; /* Center the wrapper */
+        }
+
+        /* Container for the rotatable dial itself */
+        .dial-container {
+            position: absolute; /* Crucial for positioning inside .half-moon-wrapper */
+            top: 0; /* Align the top of the dial with the top of the wrapper */
+            left: 0;
+            width: 300px; /* Keep its original dimensions */
+            height: 300px; /* Keep its original dimensions */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none; /* Prevents default touch actions like scrolling */
+            cursor: grab;
+        }
+        /* Background for the dial */
+        .dial-background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-color: #E7CEFD;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+        /* The rotatable part of the dial */
+        .dial-rotatable {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.05s ease-out; /* Smooth rotation transition */
+        }
+        /* Individual strips within the dial */
+        .dial-strip {
+            position: absolute;
+            width: 3px;
+            height: 30px;
+            background-color: #350062;
+            border-radius: 1px;
+            top: 0;
+            left: 50%;
+        }
+        /* Removed .dial-cue and @keyframes pulse-cue as requested */
+
+        /* Styling for the capture frame button */
+        .capture-button {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #810AE6;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            animation: pulse 1.5s infinite; /* Pulsing animation */
+            position: relative; /* Keep this for z-index */
+            z-index: 2; /* Ensure it's above the dial-rotatable and strips */
+        }
+        .capture-button:hover {
+            background-color: #fff;
+            transform: scale(1.05);
+            animation: none; /* Disable pulse on hover */
+        }
+        .capture-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            animation: none; /* Disable pulse when disabled */
+        }
+        /* Styling for the camera icon within the capture button */
+        .camera-icon {
+            fill: #350062;
+            width: 35px;
+            height: 35px;
+        }
+        /* Keyframes for the button pulse animation */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        /* Styling for selected extracted frames */
+        .extracted-frame.selected {
+            border: 3px solid #8B5CF6;
+        }
+
+        /* Timeline scrubber container styles */
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            height: 42px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 5px;
+            padding: 0;
+            margin-top: 5px;
+        }
+        /* Styling for the timeline scrubber itself, enabling horizontal scrolling */
+        .timeline-scrubber {
+            display: flex;
+            overflow-x: auto;
+            height: 100%;
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: #8B5CF6 #2d2d2d; /* Firefox */
+            padding: 0;
+            gap: 0;
+            scroll-behavior: smooth; /* Smooth scrolling */
+        }
+        /* Webkit (Chrome, Safari) scrollbar styles */
+        .timeline-scrubber::-webkit-scrollbar {
+            height: 8px;
+        }
+        .timeline-scrubber::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 8px;
+        }
+        .timeline-scrubber::-webkit-scrollbar-thumb {
+            background: #8B5CF6;
+            border-radius: 8px;
+        }
+        /* Individual thumbnail within the timeline */
+        .timeline-thumb {
+            flex-shrink: 0; /* Prevents shrinking */
+            width: 48px;
+            height: 100%;
+            border-radius: 0;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            box-shadow: none;
+        }
+        .timeline-thumb:hover {
+            transform: scale(1.05); /* Slight scale on hover */
+        }
+        .timeline-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .timeline-thumb .time-label {
+            display: none; /* Time label is not shown on thumbnails directly */
+        }
+        /* Highlight for the current thumbnail */
+        .current-thumb {
+            border: 3px solid #F5A020;
+            box-shadow: 0 0 10px rgba(245, 160, 32, 0.5);
+        }
+        /* Indicator for the current time on the timeline */
+        .timeline-indicator {
+            position: absolute;
+            top: -15px;
+            height: 60px;
+            width: 3px;
+            background: #F5A020;
+            z-index: 10;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .timeline-indicator::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -7px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #F5A020;
+        }
+        /* Loading indicator for timeline generation */
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+        /* Current time label above the timeline */
+        .timeline-current-time-label {
+            position: absolute;
+            top: -42px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #F5A020;
+            border-radius: 15px;
+            padding: 4px 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        /* Total frames label on the timeline */
+        .timeline-total-frames-label {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            background-color: #DDA0DD;
+            border-radius: 15px;
+            padding: 4px 10px;
+            color: #5B21B6;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        /* Aspect ratio fix for video and canvas */
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            background-color: black;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .video-container video,
+        .video-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Keeps video contained within the preview area */
+        }
+        .video-container canvas {
+            z-index: 2;
+        }
+        /* Extracted frame general styling */
+        .extracted-frame {
+            position: relative;
+            border-radius: 0.375rem; /* rounded-md */
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+            transition: transform 0.2s ease, border 0.2s ease; /* Added border transition */
+            cursor: pointer;
+        }
+
+        /* --- MODIFIED: Remove button styles --- */
+        .extracted-frame .remove-button {
+            position: absolute;
+            top: 4px; /* Slightly more padding from top */
+            right: 4px; /* Slightly more padding from right */
+            background-color: rgba(239, 68, 68, 0.7); /* Red-500 with transparency (70%) */
+            color: white;
+            border-radius: 4px; /* Square corners */
+            width: 32px; /* Larger width */
+            height: 32px; /* Larger height (square) */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem; /* Larger 'x' */
+            font-weight: bold;
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.1s ease-in-out; /* Instant transition for hover/touch */
+            cursor: pointer;
+            z-index: 10; /* Ensure it's above other elements in the frame */
+        }
+        /* Show instantly on hover for desktop */
+        .extracted-frame:hover .remove-button {
+            opacity: 1;
+        }
+        /* Show instantly when the frame is "selected" (e.g., on mobile touch) */
+        .extracted-frame.selected .remove-button {
+            opacity: 1;
+        }
+        /* --- END MODIFIED --- */
+
+        /* Footer styles - Increased transparency */
+        .sticky-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(45, 45, 45, 0.7); /* More transparent */
+            padding: 0.5rem 1rem; /* Thinner padding */
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 50; /* Ensure it's above other content */
+            backdrop-filter: blur(5px); /* Frosted glass effect */
+        }
+        /* Style for dropdowns within the footer - Added transparency */
+        .sticky-footer select {
+            background-color: rgba(63, 63, 70, 0.9); /* Tailwind gray-700 equivalent with transparency */
+            color: #fafafa;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500; /* font-medium */
+            border: none;
+            outline: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            -webkit-appearance: none; /* Remove default arrow on Webkit */
+            -moz-appearance: none;    /* Remove default arrow on Firefox */
+            appearance: none;         /* Remove default arrow */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.5em;
+            padding-right: 2.5rem; /* Make space for the custom arrow */
+        }
+        .sticky-footer select:hover {
+            background-color: #52525b; /* Tailwind gray-600 equivalent */
+        }
+
     </style>
     <link rel="manifest" href="./PWA/manifest.json">
 </head>
