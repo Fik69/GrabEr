@@ -371,7 +371,7 @@
         }
 
     </style>
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="PWA/manifest.json">
 </head>
 <body class="min-h-screen flex flex-col justify-between">
     <div class="scrollable-container">
@@ -1098,7 +1098,7 @@
         };
         if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('PWA/sw.js')
             .then((registration) => {
                 console.log('Service Worker registered with scope:', registration.scope);
             })
