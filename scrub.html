@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Frame Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #fafafa;
+            overflow-x: hidden; /* Prevent horizontal scrolling on the body */
+        }
+        .scrollable-container {
+            width: 100vw; /* Full viewport width */
+            height: 100vh; /* Full viewport height, or adjust as needed */
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+            overflow-y: auto; /* Allow vertical scrolling */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        .violetBtn {
+            background-color: #8B5CF6;
+            transition: background-color 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+        }
+        .violetBtn:hover {
+            background-color: #7C3AED;
+        }
+        .violetBtn:focus {
+            outline: 2px solid #5B21B6;
+            outline-offset: 2px;
+        }
+        .prevent-selection {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        .dial-container {
+            position: relative;
+            width: 280px; 
+            height: 280px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            margin: 0 auto; 
+            cursor: grab;
+        }
+        .dial-background {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-color: #E7CEFD;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+        .dial-rotatable {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.05s ease-out;
+        }
+        .dial-strip {
+            position: absolute;
+            width: 3px; 
+            height: 30px; 
+            background-color: #350062;
+            border-radius: 1px;
+            top: 0;
+            left: 50%;
+        }
+        .capture-button {
+            width: 100px; 
+            height: 100px;
+            border-radius: 50%;
+            background-color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #810AE6;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+        }
+        .capture-button:hover {
+            background-color: #fff;
+            transform: scale(1.05);
+            animation: none;
+        }
+        .capture-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            animation: none;
+        }
+        .camera-icon {
+            fill: #350062;
+            width: 35px; 
+            height: 35px;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        .extracted-frame.selected {
+            border: 3px solid #8B5CF6;
+        }
+        
+        /* Timeline scrubber styles */
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            height: 42px; 
+            background: rgba(0,0,0,0.3);
+            border-radius: 5px;
+            padding: 0;
+            margin-top: 5px;
+        }
+        .timeline-scrubber {
+            display: flex;
+            overflow-x: auto;
+            height: 100%;
+            scrollbar-width: thin;
+            scrollbar-color: #8B5CF6 #2d2d2d;
+            padding: 0; 
+            gap: 0; 
+            scroll-behavior: smooth;
+        }
+        .timeline-scrubber::-webkit-scrollbar {
+            height: 8px;
+        }
+        .timeline-scrubber::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 8px;
+        }
+        .timeline-scrubber::-webkit-scrollbar-thumb {
+            background: #8B5CF6;
+            border-radius: 8px;
+        }
+        .timeline-thumb {
+            flex-shrink: 0;
+            width: 48px; 
+            height: 100%; 
+            border-radius: 0; 
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            box-shadow: none; 
+        }
+        .timeline-thumb:hover {
+            transform: scale(1.05); 
+        }
+        .timeline-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .timeline-thumb .time-label {
+            display: none; 
+        }
+        .current-thumb {
+            border: 3px solid #F5A020;
+            box-shadow: 0 0 10px rgba(245, 160, 32, 0.5);
+        }
+        .timeline-indicator {
+            position: absolute;
+            top: -15px; 
+            height: 60px; 
+            width: 3px;
+            background: #F5A020;
+            z-index: 10;
+            left: 50%; 
+            transform: translateX(-50%); 
+        }
+        .timeline-indicator::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -7px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #F5A020;
+        }
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+        .timeline-current-time-label {
+            position: absolute;
+            top: -42px; 
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #F5A020;
+            border-radius: 15px;
+            padding: 4px 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .timeline-total-frames-label {
+            position: absolute;
+            top: 50%;
+            right: 10px; 
+            transform: translateY(-50%);
+            background-color: #DDA0DD; 
+            border-radius: 15px;
+            padding: 4px 10px;
+            color: #5B21B6;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        
+        /* Aspect ratio fix */
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 56.25%; /* Fixed 16:9 aspect ratio for the container */
+            background-color: black;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .video-container video,
+        .video-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Video will fit within its container, adding black bars if aspect ratios differ */
+        }
+        .video-container canvas {
+            z-index: 2;
+        }
+        /* Extracted frame aspect ratio - will be set dynamically by JS */
+        .extracted-frame {
+            position: relative;
+            border-radius: 0.375rem; /* rounded-md */
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+            transition: transform 0.2s ease;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+    <div class="scrollable-container">
+        <main class="h-full relative min-h-screen flex flex-col">
+            <div class="flex flex-col flex-grow items-center justify-center pt-2 pb-4"> 
+                <div id="upload-section" class="flex flex-col items-center gap-y-6 w-full max-w-lg text-center">
+                    <svg width="55" height="60" viewBox="0 0 55 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="opacity-30">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M30.25 2.72727C30.25 1.22104 29.0188 0 27.5 0C25.9812 0 24.75 1.22104 24.75 2.72727V34.3249L18.4445 28.0715C17.3706 27.0065 15.6294 27.0065 14.5555 28.0715C13.4815 29.1366 13.4815 30.8634 14.5555 31.9285L25.5535 42.8356C25.5601 42.8422 25.5668 42.8488 25.5735 42.8553C25.8329 43.108 26.1304 43.2994 26.4473 43.4294C26.7692 43.5618 27.1219 43.6353 27.4918 43.6364C27.4945 43.6364 27.4972 43.6364 27.5 43.6364C27.5028 43.6364 27.5055 43.6364 27.5082 43.6364C28.2552 43.6342 28.9322 43.3366 29.4265 42.8553C29.4332 42.8488 29.4399 42.8422 29.4465 42.8356L40.4445 31.9285C41.5185 30.8634 41.5185 29.1366 40.4445 28.0715C39.3706 27.0065 37.6294 27.0065 36.5555 28.0715L30.25 34.3249V2.72727ZM2.75 40.9091C4.26878 40.9091 5.5 42.1301 5.5 43.6364V51.8182C5.5 52.5415 5.78973 53.2352 6.30546 53.7467C6.82118 54.2581 7.52066 54.5455 8.25 54.5455H46.75C47.4793 54.5455 48.1788 54.2581 48.6945 53.7467C49.2103 53.2352 49.5 52.5415 49.5 51.8182V43.6364C49.5 42.1301 50.7312 40.9091 52.25 40.9091C53.7688 40.9091 55 42.1301 55 43.6364V51.8182C55 53.9881 54.1308 56.0692 52.5836 57.6036C51.0365 59.138 48.938 60 46.75 60H8.25C6.06196 60 3.96354 59.138 2.41637 57.6036C0.869194 56.0692 0 53.9881 0 51.8182V43.6364C0 42.1301 1.23122 40.9091 2.75 40.9091Z" fill="white"></path>
+                    </svg>
+                    <span class="text-sm opacity-70">Select or drag and drop a video to start extracting frames.<br/><b>100% Secure & Private.</b> Your Videos Never Leave Your PC</span>
+                    <div class="relative inline-flex justify-center items-center">
+                        <input type="file" class="absolute w-full h-full opacity-0 cursor-pointer z-10" id="video-input" accept="video/*"/>
+                        <label for="video-input" class="violetBtn flex justify-center items-center px-6 py-3 rounded-md text-white text-sm leading-tight shadow-md bg-opacity-90">
+                            <span>
+                                <svg width="20" height="22" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg" class="mr-3 sm:hidden">
+                                    <path fill-rule="evenodd" clip-rule="evenodd" d="M11 1C11 0.447715 10.5523 0 10 0C9.44771 0 9 0.447715 9 1V12.5858L6.70711 10.2929C6.31658 9.90237 5.68342 9.90237 5.29289 10.2929C4.90237 10.6834 4.90237 11.3166 5.29289 11.7071L9.29218 15.7064C9.29459 15.7088 9.29702 15.7112 9.29945 15.7136C9.3938 15.8063 9.50195 15.8764 9.61722 15.9241C9.73425 15.9727 9.8625 15.9996 9.997 16C9.998 16 9.999 16 10 16C10.001 16 10.002 16 10.003 16C10.2746 15.9992 10.5208 15.8901 10.7005 15.7136C10.703 15.7112 10.7054 15.7088 10.7078 15.7064L14.7071 11.7071C15.0976 11.3166 15.0976 10.6834 14.7071 10.2929C14.3166 9.90237 13.6834 9.90237 13.2929 10.2929L11 12.5858V1ZM1 15C1.55228 15 2 15.4477 2 16V19C2 19.2652 2.10536 19.5196 2.29289 19.7071C2.48043 19.8946 2.73478 20 3 20H17C17.2652 20 17.5196 20.8946 17.7071 19.7071C17.8946 19.8946 18 19.2652 18 19V16C18 15.4477 18.4477 15 19 15C19.5523 15 20 15.4477 20 16V19C20 19.7957 19.6839 20.5587 19.1213 21.1213C18.5587 21.6839 17.7957 22 17 22H3C2.20435 22 1.44129 21.6839 0.87868 21.1213C0.31607 20.5587 0 19.7957 0 19V16C0 15.4477 0.447715 15 1 15Z" fill="white"></path>
+                                </svg>
+                            </span>Choose Video
+                        </label>
+                    </div>
+                </div>
+
+                <div id="video-area" class="hidden flex-col items-center justify-center w-[768px] relative mt-2 mb-0"> 
+                    <div class="video-container">
+                        <video id="video-player" class="w-full h-full"></video>
+                        <canvas id="video-canvas" class="hidden"></canvas>
+                    </div>
+                </div>
+
+                <div id="controls-section" class="hidden flex-col items-center w-full max-w-4xl"> 
+                    <div class="timeline-container">
+                        <div class="timeline-current-time-label" id="timeline-current-time">0:00.000f</div>
+                        <div class="timeline-indicator"></div>
+                        <div id="timeline-scrubber" class="timeline-scrubber"></div>
+                        <div id="timeline-loading" class="loading-indicator hidden">
+                            Generating timeline preview...
+                        </div>
+                        <div class="timeline-total-frames-label" id="timeline-total-frames">0 Frames</div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mt-4"> 
+                        <div class="dial-container" id="dial-container-wrapper"> 
+                            <div class="dial-background"></div>
+                            <div class="dial-rotatable" id="dial-rotatable"></div>
+                            <button id="capture-frame-btn" class="capture-button">
+                                <svg class="camera-icon" width="30" height="30" viewBox="0 0 30 30" fill="currentColor">
+                                    <path d="M22.5 17.5C22.5 19.1568 21.1568 20.5 19.5 20.5C17.8432 20.5 16.5 19.1568 16.5 17.5C16.5 15.8432 17.8432 14.5 19.5 14.5C21.1568 14.5 22.5 15.8432 22.5 17.5Z"/>
+                                    <path d="M28.5 7.5H25.5L22.5 3H16.5L13.5 7.5H1.5C0.671573 7.5 0 8.17157 0 9V22.5C0 23.3284 0.671573 24 1.5 24H28.5C29.3284 24 30 23.3284 30 22.5V9C30 8.17157 29.3284 7.5 28.5 7.5ZM19.5 21C16.4624 21 14 18.5376 14 15.5C14 12.4624 16.4624 10 19.5 10C22.5376 10 25 12.4624 25 15.5C25 18.5376 22.5376 21 19.5 21Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="extracted-frames-section" class="hidden flex-col items-center w-full max-w-4xl bg-gray-800 bg-opacity-90 rounded-lg mt-8">
+                    <h3 class="text-lg font-semibold mb-4">Selected Frames:</h3>
+                    <div id="extracted-frames-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 w-full"></div>
+                    <div class="flex flex-col sm:flex-row gap-4 mt-6">
+                        <button id="download-all-zip-btn" class="violetBtn px-6 py-3 rounded-md text-white text-base font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center bg-opacity-90">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                            Download Selected Frames (.zip)
+                        </button>
+                        <button id="download-all-individual-btn" class="violetBtn px-6 py-3 rounded-md text-white text-base font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center bg-opacity-90">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                            Download Selected Frames (Individual Files)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const videoInput = document.getElementById('video-input');
+        const videoPlayer = document.getElementById('video-player');
+        const videoCanvas = document.getElementById('video-canvas');
+        const canvasCtx = videoCanvas.getContext('2d', { willReadFrequently: true });
+        const uploadSection = document.getElementById('upload-section');
+        const videoArea = document.getElementById('video-area');
+        const controlsSection = document.getElementById('controls-section');
+        const extractedFramesSection = document.getElementById('extracted-frames-section');
+        const extractedFramesContainer = document.getElementById('extracted-frames-container');
+        const timelineCurrentTimeLabel = document.getElementById('timeline-current-time');
+        const timelineTotalFramesLabel = document.getElementById('timeline-total-frames');
+        const captureFrameBtn = document.getElementById('capture-frame-btn');
+        const dialRotatable = document.getElementById('dial-rotatable');
+        const timelineScrubber = document.getElementById('timeline-scrubber');
+        const timelineLoading = document.getElementById('timeline-loading');
+        const downloadAllZipBtn = document.getElementById('download-all-zip-btn');
+        const downloadAllIndividualBtn = document.getElementById('download-all-individual-btn');
+        const dialContainerWrapper = document.getElementById('dial-container-wrapper'); 
+
+        let videoLoaded = false;
+        let videoDuration = 0;
+        let videoFPS = 30; 
+        let totalFrames = 0;
+        let currentFrameIndex = 0;
+        const extractedFrames = [];
+        let frameIdCounter = 0;
+        let timelineThumbnails = [];
+        let videoAspectRatio = 16 / 9; // Default to 16:9
+
+        // Constants for dial sensitivity
+        const DIAL_FRAMES_PER_ROTATION = 25; 
+        const DIAL_DEGREES_PER_FRAME_SENSITIVITY = 360 / DIAL_FRAMES_PER_ROTATION;
+
+        // Utility Functions
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            const milliseconds = Math.floor((remainingSeconds - Math.floor(remainingSeconds)) * 1000);
+            return `${String(minutes).padStart(2, '0')}:${String(Math.floor(remainingSeconds)).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
+        }
+
+        function seekToFrame(frameIndex) {
+            if (!videoLoaded || isNaN(frameIndex) || frameIndex < 0 || frameIndex >= totalFrames) return;
+            
+            const newTime = frameIndex / videoFPS;
+            videoPlayer.currentTime = newTime;
+            currentFrameIndex = frameIndex;
+            updateTimelineLabels(); 
+            updateDialRotation();
+            updateTimelinePosition();
+        }
+
+        function drawFrameToCanvas() {
+            if (!videoLoaded || videoPlayer.readyState < 2) return;
+            
+            // Set canvas dimensions to match the video's native resolution for accurate capture
+            videoCanvas.width = videoPlayer.videoWidth;
+            videoCanvas.height = videoPlayer.videoHeight;
+            
+            // Draw the video frame onto the canvas at its native resolution
+            canvasCtx.drawImage(videoPlayer, 0, 0, videoCanvas.width, videoCanvas.height);
+        }
+
+        function updateTimelineLabels() {
+            timelineCurrentTimeLabel.textContent = `${formatTime(videoPlayer.currentTime)}f`;
+            timelineTotalFramesLabel.textContent = `${totalFrames} Frames`;
+        }
+
+        function generateDialStrips() {
+            dialRotatable.innerHTML = '';
+            const numStrips = DIAL_FRAMES_PER_ROTATION; 
+            if (numStrips === 0) return;
+
+            const degreesPerStrip = 360 / numStrips;
+            const dialRadius = dialRotatable.offsetWidth / 2;
+
+            for (let i = 0; i < numStrips; i++) {
+                const strip = document.createElement('div');
+                strip.classList.add('dial-strip');
+                const rotation = i * degreesPerStrip;
+                
+                strip.style.transformOrigin = `50% ${dialRadius}px`;
+                strip.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+                
+                dialRotatable.appendChild(strip);
+            }
+        }
+
+        function updateDialRotation() {
+            if (totalFrames === 0) return;
+            const visualDegreesPerFrame = 360 / totalFrames;
+            const newRotation = currentFrameIndex * visualDegreesPerFrame;
+            dialRotatable.style.transform = `rotate(${newRotation}deg)`;
+        }
+        
+        function updateTimelinePosition() {
+            document.querySelectorAll('.timeline-thumb').forEach(thumb => {
+                thumb.classList.remove('current-thumb');
+            });
+            
+            let closestThumbElement = null;
+            let minFrameDiff = Infinity;
+
+            timelineThumbnails.forEach(thumbData => {
+                const frameIndexOfThumb = parseInt(thumbData.element.dataset.frameIndex);
+                const diff = Math.abs(currentFrameIndex - frameIndexOfThumb);
+                if (diff < minFrameDiff) {
+                    minFrameDiff = diff;
+                    closestThumbElement = thumbData.element;
+                }
+            });
+
+            if (closestThumbElement) {
+                closestThumbElement.classList.add('current-thumb');
+                
+                const container = timelineScrubber;
+                container.scrollLeft = closestThumbElement.offsetLeft - (container.offsetWidth / 2) + (closestThumbElement.offsetWidth / 2);
+            }
+        }
+
+        async function generateTimelineThumbnails() {
+            timelineScrubber.innerHTML = '';
+            timelineThumbnails = [];
+            timelineLoading.classList.remove('hidden');
+            
+            if (totalFrames === 0) {
+                timelineLoading.classList.add('hidden');
+                return;
+            }
+            
+            const targetThumbnails = 100; 
+            const interval = videoDuration / targetThumbnails;
+            
+            const originalTime = videoPlayer.currentTime;
+            const originalPaused = videoPlayer.paused;
+            videoPlayer.pause();
+            
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            
+            const targetHeight = 42; 
+            let thumbWidth = 0;
+            let thumbHeight = targetHeight;
+
+            if (videoPlayer.videoWidth > 0 && videoPlayer.videoHeight > 0) {
+                const aspectRatio = videoPlayer.videoWidth / videoPlayer.videoHeight;
+                thumbWidth = targetHeight * aspectRatio;
+            } else {
+                thumbWidth = 48; 
+            }
+
+            tempCanvas.width = thumbWidth;
+            tempCanvas.height = thumbHeight;
+
+            for (let i = 0; i < totalFrames; i += Math.round(videoFPS * interval)) {
+                const time = i / videoFPS;
+                const frameIndex = i; 
+                
+                videoPlayer.currentTime = time;
+                
+                await new Promise(resolve => {
+                    videoPlayer.addEventListener('seeked', resolve, { once: true });
+                });
+                
+                tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                tempCtx.drawImage(videoPlayer, 0, 0, tempCanvas.width, tempCanvas.height);
+                
+                const thumbUrl = tempCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for thumbnails
+                
+                const thumb = document.createElement('div');
+                thumb.classList.add('timeline-thumb');
+                thumb.dataset.frameIndex = frameIndex; 
+                thumb.style.width = `${thumbWidth}px`;
+                thumb.style.height = `${thumbHeight}px`; 
+                
+                const img = document.createElement('img');
+                img.src = thumbUrl;
+                img.alt = `Frame at ${formatTime(time)}`;
+                
+                thumb.appendChild(img);
+                timelineScrubber.appendChild(thumb);
+                
+                timelineThumbnails.push({ element: thumb, frameIndex: frameIndex }); 
+                
+                thumb.addEventListener('click', () => {
+                    seekToFrame(parseInt(thumb.dataset.frameIndex));
+                });
+            }
+            
+            videoPlayer.currentTime = originalTime;
+            if (!originalPaused) {
+                videoPlayer.play();
+            }
+            
+            timelineLoading.classList.add('hidden');
+            updateTimelinePosition();
+        }
+
+        // Event Handlers
+        videoInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('video/')) {
+                const videoURL = URL.createObjectURL(file);
+                videoPlayer.src = videoURL;
+                videoPlayer.load();
+                uploadSection.classList.add('hidden');
+                videoArea.classList.remove('hidden');
+                controlsSection.classList.remove('hidden');
+                extractedFramesSection.classList.remove('hidden');
+                captureFrameBtn.disabled = true;
+                downloadAllZipBtn.disabled = true;
+                downloadAllIndividualBtn.disabled = true;
+                timelineCurrentTimeLabel.textContent = 'Loading...';
+                timelineTotalFramesLabel.textContent = '';
+                extractedFrames.length = 0;
+                renderExtractedFrames();
+            } else {
+                console.error('Please select a valid video file.');
+            }
+        });
+
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            videoLoaded = true;
+            videoDuration = videoPlayer.duration;
+            videoFPS = 30; 
+            totalFrames = Math.floor(videoDuration * videoFPS);
+            currentFrameIndex = 0;
+            videoPlayer.currentTime = 0;
+            
+            videoAspectRatio = videoPlayer.videoWidth / videoPlayer.videoHeight;
+            // The video-container will keep its fixed 16:9 aspect ratio from CSS.
+            // The video player inside will use object-fit: contain to fit.
+
+            drawFrameToCanvas(); // This now draws to a canvas sized to native video resolution
+            updateTimelineLabels();
+            generateDialStrips();
+            updateDialRotation();
+
+            captureFrameBtn.disabled = false;
+            generateTimelineThumbnails();
+        });
+
+        videoPlayer.addEventListener('seeked', () => {
+            drawFrameToCanvas();
+            updateTimelineLabels();
+            updateDialRotation();
+            updateTimelinePosition();
+        });
+
+        videoPlayer.addEventListener('resize', () => {
+            // No specific action needed here as video-container maintains fixed aspect ratio.
+            // drawFrameToCanvas will always use native video dimensions for capture.
+        });
+
+        captureFrameBtn.addEventListener('click', async () => {
+            if (!videoLoaded) return;
+
+            // Ensure the video player is at the exact current time for capture
+            await new Promise(resolve => {
+                videoPlayer.addEventListener('seeked', function onSeeked() {
+                    videoPlayer.removeEventListener('seeked', onSeeked);
+                    resolve();
+                });
+                videoPlayer.currentTime = videoPlayer.currentTime; 
+            });
+            
+            drawFrameToCanvas(); // This will now draw to a canvas sized to native video resolution for capture
+
+            // Use 'image/jpeg' to remove transparency and ensure a solid image with 100% quality
+            const dataURL = videoCanvas.toDataURL('image/jpeg', 1.0); 
+            extractedFrames.push({
+                id: frameIdCounter++,
+                frameIndex: currentFrameIndex,
+                time: videoPlayer.currentTime,
+                dataURL: dataURL,
+                selected: true
+            });
+            renderExtractedFrames();
+        });
+
+        function renderExtractedFrames() {
+            extractedFramesContainer.innerHTML = '';
+            if (extractedFrames.length === 0) {
+                extractedFramesContainer.innerHTML = '<p class="text-gray-400 text-center col-span-full">No frames selected yet.</p>';
+                downloadAllZipBtn.disabled = true;
+                downloadAllIndividualBtn.disabled = true;
+                return;
+            }
+
+            extractedFrames.forEach((frame) => {
+                const frameDiv = document.createElement('div');
+                frameDiv.id = `frame-${frame.id}`;
+                frameDiv.classList.add('extracted-frame', 'relative', 'rounded-md', 'overflow-hidden', 'shadow-md', 'group', 'cursor-pointer');
+                // Set aspect ratio dynamically for the extracted frame display
+                frameDiv.style.paddingBottom = `${(1 / videoAspectRatio) * 100}%`; 
+                frameDiv.style.height = '0'; // Essential for padding-bottom trick
+                
+                if (frame.selected) {
+                    frameDiv.classList.add('selected');
+                }
+
+                const img = document.createElement('img');
+                img.src = frame.dataURL;
+                img.alt = `Frame ${frame.frameIndex}`;
+                img.classList.add('w-full', 'h-full', 'object-cover', 'absolute', 'top-0', 'left-0'); // Added absolute positioning
+
+                const overlay = document.createElement('div');
+                overlay.classList.add('absolute', 'inset-0', 'bg-black', 'bg-opacity-50', 'flex', 'flex-col', 'justify-center', 'items-center', 'opacity-0', 'group-hover:opacity-100', 'transition-opacity');
+
+                const timeLabel = document.createElement('span');
+                timeLabel.classList.add('text-white', 'text-sm', 'font-semibold', 'mb-2');
+                timeLabel.textContent = formatTime(frame.time);
+
+                const removeButton = document.createElement('button');
+                removeButton.classList.add(
+                    'absolute', 'top-1', 'right-1',
+                    'bg-red-500', 'bg-opacity-95', 'hover:bg-red-600',
+                    'text-white', 'w-8', 'h-8', 'flex', 'justify-center', 'items-center', // Square and bigger
+                    'text-lg', 'font-bold', // Increased text size for 'x'
+                    'opacity-0', 'group-hover:opacity-100', 'transition-opacity'
+                );
+                removeButton.innerHTML = '&times;';
+                removeButton.title = 'Remove frame';
+                removeButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeFrame(frame.id);
+                });
+
+                frameDiv.addEventListener('click', () => {
+                    toggleFrameSelection(frame.id);
+                });
+
+                overlay.appendChild(timeLabel);
+                frameDiv.appendChild(img);
+                frameDiv.appendChild(overlay);
+                frameDiv.appendChild(removeButton);
+                extractedFramesContainer.appendChild(frameDiv);
+            });
+
+            updateDownloadButtonsState();
+        }
+
+        function removeFrame(id) {
+            const index = extractedFrames.findIndex(f => f.id === id);
+            if (index > -1) {
+                extractedFrames.splice(index, 1);
+                renderExtractedFrames();
+            }
+        }
+
+        function toggleFrameSelection(id) {
+            const frame = extractedFrames.find(f => f.id === id);
+            if (frame) {
+                frame.selected = !frame.selected;
+                const frameElement = document.getElementById(`frame-${id}`);
+                if (frameElement) {
+                    frame.selected ? frameElement.classList.add('selected') : frameElement.classList.remove('selected');
+                }
+                updateDownloadButtonsState();
+            }
+        }
+
+        function updateDownloadButtonsState() {
+            const selectedCount = extractedFrames.filter(f => f.selected).length;
+            downloadAllZipBtn.disabled = selectedCount === 0;
+            downloadAllIndividualBtn.disabled = selectedCount === 0;
+            downloadAllZipBtn.textContent = selectedCount > 0 ? `Download ${selectedCount} Selected Frames (.zip)` : 'Download Selected Frames (.zip)';
+            downloadAllIndividualBtn.textContent = selectedCount > 0 ? `Download ${selectedCount} Frames (Individual Files)` : 'Download Selected Frames (Individual Files)';
+        }
+
+        downloadAllZipBtn.addEventListener('click', async () => {
+            const selectedFrames = extractedFrames.filter(f => f.selected);
+            if (selectedFrames.length === 0) return;
+
+            downloadAllZipBtn.textContent = 'Preparing ZIP...';
+            downloadAllZipBtn.disabled = true;
+            downloadAllIndividualBtn.disabled = true;
+
+            const zip = new JSZip();
+            selectedFrames.forEach(frame => {
+                const base64Data = frame.dataURL.split(',')[1];
+                // Filename extension to .jpg (already done)
+                const filename = `frame_${frame.frameIndex}_${formatTime(frame.time).replace(/[:.]/g, '-')}.jpg`; 
+                zip.file(filename, base64Data, { base64: true });
+            });
+
+            try {
+                const content = await zip.generateAsync({ type: "blob" });
+                saveAs(content, "extracted_frames.zip");
+            } catch (error) {
+                console.error('Error generating ZIP file:', error);
+            } finally {
+                updateDownloadButtonsState();
+            }
+        });
+
+        downloadAllIndividualBtn.addEventListener('click', async () => {
+            const selectedFrames = extractedFrames.filter(f => f.selected);
+            if (selectedFrames.length === 0) return;
+
+            downloadAllZipBtn.disabled = true;
+            downloadAllIndividualBtn.textContent = 'Downloading...';
+            downloadAllIndividualBtn.disabled = true;
+
+            for (const frame of selectedFrames) {
+                // Filename extension to .jpg (already done)
+                const filename = `frame_${frame.frameIndex}_${formatTime(frame.time).replace(/[:.]/g, '-')}.jpg`; 
+                const blob = await fetch(frame.dataURL).then(res => res.blob());
+                saveAs(blob, filename);
+                await new Promise(resolve => setTimeout(resolve, 100)); 
+            }
+
+            updateDownloadButtonsState();
+        });
+
+        // Dial Interaction Logic
+        let isDialDragging = false;
+        let initialMouseAngle = 0;
+        let lastMouseAngleDuringDrag = 0;
+        let accumulatedDragAngle = 0;
+        let initialFrameIndexOnDragStart = 0;
+
+        dialContainerWrapper.addEventListener('mousedown', startDialDrag);
+        dialContainerWrapper.addEventListener('touchstart', startDialDrag, { passive: false });
+
+        function startDialDrag(event) {
+            if (!videoLoaded) return;
+            isDialDragging = true;
+            dialContainerWrapper.style.cursor = 'grabbing';
+            dialRotatable.style.transition = 'none';
+
+            const rect = dialRotatable.getBoundingClientRect(); 
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const clientX = event.clientX || (event.touches ? event.touches[0].clientX : 0);
+            const clientY = event.clientY || (event.touches ? event.touches[0].clientY : 0);
+
+            initialMouseAngle = Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+            lastMouseAngleDuringDrag = initialMouseAngle;
+            accumulatedDragAngle = 0;
+            initialFrameIndexOnDragStart = currentFrameIndex;
+
+            document.addEventListener('mousemove', dragDial);
+            document.addEventListener('touchmove', dragDial, { passive: false });
+            document.addEventListener('mouseup', endDialDrag);
+            document.addEventListener('touchend', endDialDrag);
+        }
+
+        function dragDial(event) {
+            if (!isDialDragging) return;
+            event.preventDefault();
+
+            const rect = dialRotatable.getBoundingClientRect(); 
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const clientX = event.clientX || (event.touches ? event.touches[0].clientX : 0);
+            const clientY = event.clientY || (event.touches ? event.touches[0].clientY : 0);
+
+            const currentMouseAngle = Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+            let angleChange = currentMouseAngle - lastMouseAngleDuringDrag;
+
+            if (angleChange > 180) angleChange -= 360;
+            if (angleChange < -180) angleChange += 360;
+
+            accumulatedDragAngle += angleChange;
+            lastMouseAngleDuringDrag = currentMouseAngle;
+
+            const frameDelta = Math.round(accumulatedDragAngle / DIAL_DEGREES_PER_FRAME_SENSITIVITY);
+            let newFrameIndex = initialFrameIndexOnDragStart + frameDelta;
+            
+            newFrameIndex = Math.min(Math.max(0, newFrameIndex), totalFrames - 1);
+
+            if (currentFrameIndex !== newFrameIndex) {
+                 seekToFrame(newFrameIndex);
+            }
+
+            updateDialRotation();
+        }
+
+        function endDialDrag() {
+            isDialDragging = false;
+            dialContainerWrapper.style.cursor = 'grab';
+            dialRotatable.style.transition = 'transform 0.05s ease-out';
+            updateDialRotation();
+
+            document.removeEventListener('mousemove', dragDial);
+            document.removeEventListener('touchmove', dragDial);
+            document.removeEventListener('mouseup', endDialDrag);
+            document.removeEventListener('touchend', endDialDrag);
+        }
+
+        // Initial setup
+        window.addEventListener('resize', () => {
+            // No specific action needed here as video-container maintains fixed aspect ratio from CSS.
+            // drawFrameToCanvas will always use native video dimensions for capture.
+        });
+
+        window.onload = function() {
+            renderExtractedFrames();
+        };
+    </script>
+</body>
+</html>
