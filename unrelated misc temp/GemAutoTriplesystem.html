@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Grand Categorization Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-venn@4.2.0/build/index.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 60vh;
+            width: 100%;
+            max-width: 800px;
+            max-height: 500px;
+        }
+        .upset-chart-container {
+            position: relative;
+            margin: auto;
+            width: 100%;
+            max-width: 900px;
+        }
+        .glassmorphism {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 0.875rem;
+            background: #1f2937;
+            color: #f9fafb;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+        .category-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .toggle-button {
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .active-toggle {
+            background-color: #4f46e5;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <header class="text-center my-8 md:my-12">
+            <h1 class="text-4xl md:text-6xl font-black text-white tracking-tighter">The Grand Categorization Project</h1>
+            <p class="mt-4 text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">An interactive visualization of human archetypes, born from a late-night Discord conversation.</p>
+        </header>
+
+        <main>
+            <section id="introduction" class="my-16">
+                <div class="glassmorphism p-6 md:p-8 rounded-2xl">
+                    <h2 class="text-3xl font-bold text-white mb-4">Genesis of a Theory</h2>
+                    <p class="text-gray-400 leading-relaxed">This project originated from a casual yet profound exchange between two friends, Fiki and RoboGod, attempting to classify the people they knew. What began as humorous observations about gaming, personality, and the "normie grind" evolved into a robust framework for understanding different modes of human existence. This infographic brings that framework to life, blending philosophical musing with data visualization.</p>
+                </div>
+            </section>
+
+            <section id="core-archetypes" class="my-16">
+                <h2 class="text-3xl font-bold text-white text-center mb-10">The Core Archetypes</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div id="questors-card" class="glassmorphism p-6 rounded-2xl category-card border-l-4" style="border-color: #8b5cf6;">
+                        <h3 class="text-2xl font-bold text-white mb-3">The Questors</h3>
+                        <p class="font-semibold mb-3 text-purple-400">(The Driven Pursuers)</p>
+                        <p class="text-gray-400">Individuals defined by deep, immersive, and often obsessive engagement in specific pursuits. Their "quest" provides purpose and identity, whether it's mastering a craft, exploring game lore, or any other dedicated endeavor.</p>
+                    </div>
+                    <div id="shadowhermits-card" class="glassmorphism p-6 rounded-2xl category-card border-l-4" style="border-color: #fbbf24;">
+                        <h3 class="text-2xl font-bold text-white mb-3">The Shadow Hermits</h3>
+                        <p class="font-semibold mb-3 text-amber-400">(Rick & Morty Philosophers)</p>
+                        <p class="text-gray-400">Introspective, self-aware individuals who critically observe society. They prefer deep connection, employ unconventional mental frameworks, and often take sardonic potshots at the "normie grind."</p>
+                    </div>
+                    <div id="sleepwalkers-card" class="glassmorphism p-6 rounded-2xl category-card border-l-4" style="border-color: #3b82f6;">
+                        <h3 class="text-2xl font-bold text-white mb-3">The Sleepwalkers</h3>
+                        <p class="font-semibold mb-3 text-blue-400">(The Normie Grind)</p>
+                        <p class="text-gray-400">Those passively living conventional lives, defined by societal expectations, jobs, and routines. They embody the "millennia old normie grind" without deep critical reflection.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="visualization" class="my-16 text-center">
+                <h2 class="text-3xl font-bold text-white mb-4">Visualizing The Population</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto mb-8">Based on a hypothetical population of 1000 individuals, we can visualize the distribution. Use the toggle to switch between an intuitive Euler Diagram and a precise UpSet Plot.</p>
+                
+                <div class="flex justify-center mb-8">
+                    <div class="flex rounded-lg p-1 bg-gray-800 space-x-1">
+                        <button id="venn-toggle" class="toggle-button px-4 py-2 text-sm font-semibold rounded-md active-toggle">Euler Diagram</button>
+                        <button id="upset-toggle" class="toggle-button px-4 py-2 text-sm font-semibold rounded-md">UpSet Plot</button>
+                    </div>
+                </div>
+
+                <div id="venn-view">
+                    <div class="chart-container">
+                        <canvas id="vennChart"></canvas>
+                    </div>
+                    <div id="venn-tooltip" class="tooltip"></div>
+                </div>
+
+                <div id="upset-view" class="hidden">
+                    <div class="upset-chart-container glassmorphism p-4 md:p-6 rounded-2xl">
+                         <div id="upsetChart"></div>
+                         <div id="upset-tooltip" class="tooltip"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="meta-archetypes" class="my-16">
+                 <h2 class="text-3xl font-bold text-white text-center mb-10">The Meta-Archetypes</h2>
+                 <p class="text-gray-400 max-w-3xl mx-auto text-center mb-12">Each intersection of the core categories creates a unique "meta-archetype," a recurring human pattern inspired by the "Jennifer" effect. Here are a few examples, defined by their ratio of traits: Questor (Q), Shadow Hermit (SH), and Sleepwalker (S).</p>
+                 <div id="archetype-details" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 </div>
+            </section>
+
+        </main>
+
+        <footer class="text-center mt-16 py-8 border-t border-gray-800">
+            <p class="text-gray-500">A conceptual project by Fiki & RoboGod. Visualized with D3.js and Chart.js. No SVG or MermaidJS were used in this production.</p>
+        </footer>
+    </div>
+
+    <script>
+    const projectData = {
+      "totalPopulation": 1000,
+      "categories": [
+        { "id": "questors", "label": "The Questors (The Driven Pursuers)", "color": "#8b5cf6" },
+        { "id": "shadowHermits", "label": "The Shadow Hermits (Rick & Morty Philosophers)", "color": "#fbbf24" },
+        { "id": "sleepwalkers", "label": "The Sleepwalkers (Normie Grind)", "color": "#3b82f6" }
+      ],
+      "wormPoop": { "id": "wormPoop", "label": "Worm Poop (The Inevitable End)", "color": "#111827" },
+      "archetypePopulations": [
+        { "sets": ["questors"], "size": 100, "metaArchetypes": ["LoreMaster Leo", "The Trekkie (Deep Lore)", "The Master Artisan (1750s equivalent)", "The Driven Researcher"] },
+        { "sets": ["shadowHermits"], "size": 10, "metaArchetypes": ["Existential Erica", "Solipsist Sam (Morty)", "The Observational Olly", "Walter White (Early Phase)"] },
+        { "sets": ["sleepwalkers"], "size": 750, "metaArchetypes": ["Bob, The Brand Manager", "Karen from HR", "Chad, The Sales Guy", "Soccer Mom Sue", "Homer Simpson", "Lois Griffin"] },
+        { "sets": ["questors", "shadowHermits"], "size": 15, "metaArchetypes": ["Arcane Alex", "The Rick (R&M)", "The Meta-Critic Mark", "Solo World-Builder Sam"] },
+        { "sets": ["questors", "sleepwalkers"], "size": 60, "metaArchetypes": ["Weekend Warrior Wendy", "Sheldon Cooper (TBBT)", "The Corporate Crusader Chris", "Gaming Parent Dave"] },
+        { "sets": ["shadowHermits", "sleepwalkers"], "size": 60, "metaArchetypes": ["Silent Steve", "Bojack Horseman (Functional version)", "Office Observer Olivia", "The Philosophical Phyllis"] },
+        { "sets": ["questors", "shadowHermits", "sleepwalkers"], "size": 5, "metaArchetypes": ["Dr. Gregory House", "The Commander Sisko (DS9)", "The Tyrion Lannister (GoT)", "The Batman (Nolan-verse)"] }
+      ],
+      "metaArchetypeDetails": [
+        { "name": "LoreMaster Leo", "ratio": [100, 0, 0], "description": "The archetype of someone who dedicates immense time to mastering game lore and mechanics, often leading online communities around it. Pure quest." },
+        { "name": "The Trekkie (Deep Lore)", "ratio": [95, 5, 0], "description": "Knows every starship spec, every obscure alien race, debating canon for hours. A true driven pursuer of specific lore, with a hint of obsessive detachment." },
+        { "name": "The Master Artisan (1750s equivalent)", "ratio": [100, 0, 0], "description": "Obsessively perfecting their craft, living for the pursuit of mastery in a specific skill, regardless of era." },
+        { "name": "The Driven Researcher", "ratio": [90, 10, 0], "description": "Deeply immersed in a scientific or intellectual quest, driven by discovery, with less focus on social norms or introspection." },
+        { "name": "Existential Erica", "ratio": [0, 100, 0], "description": "The philosophical observer, constantly contemplating the nature of existence and human behavior, often finding conventional interactions superficial. Pure shadow hermit." },
+        { "name": "Solipsist Sam (Morty)", "ratio": [0, 95, 5], "description": "Explores Tim Leary's 8-circuit model, questions reality, and often views others as NPCs, though he has to navigate the world (slight Sleepwalker presence)." },
+        { "name": "The Observational Olly", "ratio": [5, 95, 0], "description": "A cynical commentator who dissects societal norms from a distance, often through media consumption, but primarily driven by their introspective observations." },
+        { "name": "Walter White (Early Phase)", "ratio": [10, 90, 0], "description": "Brilliant but unrecognized, simmering with suppressed genius and a disdain for the mundane, embodying the early, purely observational, internally critical stage of a Shadow Hermit with hints of future drive." },
+        { "name": "Bob, The Brand Manager", "ratio": [0, 0, 100], "description": "The quintessential corporate drone, fully immersed in the conventional work-life balance without much individual spark or critical thought. Pure sleepwalker." },
+        { "name": "Karen from HR", "ratio": [0, 5, 95], "description": "Strictly adheres to company policy and social norms, embodying the unthinking conformity of the 'normie grind' with a hint of judgmental observation (Shadow Hermit)." },
+        { "name": "Homer Simpson", "ratio": [0, 0, 100], "description": "Utterly oblivious to deeper meanings, driven purely by comfort, food, and simple desires, a prime example of the unconscious Sleepwalker." },
+        { "name": "Lois Griffin", "ratio": [0, 10, 90], "description": "The exasperated enabler of chaos, constantly managing the mundane despite the madness around her, often observing but rarely deeply questioning or rebelling against the norm (slight Shadow Hermit for observation)." },
+        { "name": "Arcane Alex", "ratio": [70, 30, 0], "description": "A solitary, analytical master of a niche hobby. Deeply engaged in lore or mechanics (Questor) but often avoids broader social interaction (Shadow Hermit)." },
+        { "name": "The Rick (R&M)", "ratio": [60, 40, 0], "description": "Brilliant cosmic 'quests' and scientific pursuits (Questor), but utterly cynical, misanthropic, and self-aware of reality's futility (Shadow Hermit)." },
+        { "name": "The Meta-Critic Mark", "ratio": [50, 50, 0], "description": "Plays deeply (Questor) but critiques the hobby's culture from an intellectual distance (Shadow Hermit), balancing engagement with critical observation." },
+        { "name": "Solo World-Builder Sam", "ratio": [80, 20, 0], "description": "Creates vast, intricate fictional worlds for personal satisfaction (Questor), driven by deep lore, but his solitary nature and lack of sharing leans him into Shadow Hermit territory." },
+        { "name": "Weekend Warrior Wendy", "ratio": [50, 0, 50], "description": "Lives for her intense weekend hobby escape (Questor), but her main life is the demanding 'normie grind' (Sleepwalker)." },
+        { "name": "Sheldon Cooper (TBBT)", "ratio": [70, 0, 30], "description": "Follows routines rigidly (Sleepwalker) but lives for his very specific, intense nerd 'quests' and lore, often oblivious to social nuance (Questor)." },
+        { "name": "The Corporate Crusader Chris", "ratio": [40, 0, 60], "description": "Views work itself as a strategic 'game' (Questor), but his primary life path is navigating the corporate normie grind (Sleepwalker)." },
+        { "name": "Gaming Parent Dave", "ratio": [30, 0, 70], "description": "Successfully balances family life and professional responsibilities (Sleepwalker) with a significant, active commitment to his gaming community or passion (Questor)." },
+        { "name": "Silent Steve", "ratio": [0, 60, 40], "description": "Physically present and compliant in the 'normie grind' (Sleepwalker) but mentally lives in a rich inner world, observing and critically dissecting its absurdities (Shadow Hermit)." },
+        { "name": "Bojack Horseman (Functional version)", "ratio": [0, 55, 45], "description": "Deeply self-aware of his flaws and existential despair (Shadow Hermit), but trapped in the superficial, self-destructive routines of his life (Sleepwalker)." },
+        { "name": "Office Observer Olivia", "ratio": [0, 50, 50], "description": "Excels at her conventional job (Sleepwalker) by understanding human patterns, while maintaining a cynical detachment from its underlying purpose (Shadow Hermit)." },
+        { "name": "The Philosophical Phyllis", "ratio": [0, 70, 30], "description": "Her daily routine is a backdrop for continuous, deep philosophical inquiry (Shadow Hermit), often using abstract frameworks to interpret mundane events, though she still participates in the norm (Sleepwalker)." },
+        { "name": "Dr. Gregory House", "ratio": [40, 45, 15], "description": "His obsessive drive to solve medical mysteries (Questor) is coupled with a profound cynicism and intellectual detachment (Shadow Hermit), all while operating within the highly structured, bureaucratic 'normie grind' of a hospital (Sleepwalker)." },
+        { "name": "The Commander Sisko (DS9)", "ratio": [30, 35, 35], "description": "A capable military leader and family man (Sleepwalker), deeply spiritual and questioning the nature of existence (Shadow Hermit), and driven by a profound 'quest' to understand the wormhole (Questor)." },
+        { "name": "The Tyrion Lannister (GoT)", "ratio": [35, 30, 35], "description": "Navigates political systems as a complex game (Questor), profoundly intelligent and self-aware (Shadow Hermit), yet fundamentally forced to play by the 'rules' of society and family (Sleepwalker)." },
+        { "name": "The Batman (Nolan-verse)", "ratio": [40, 30, 30], "description": "His 'quest' is fighting crime (Questor), driven by deep psychological introspection and trauma (Shadow Hermit), all while maintaining the facade of billionaire playboy Bruce Wayne (Sleepwalker)." }
+      ]
+    };
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const vennView = document.getElementById('venn-view');
+        const upsetView = document.getElementById('upset-view');
+        const vennToggle = document.getElementById('venn-toggle');
+        const upsetToggle = document.getElementById('upset-toggle');
+        
+        let vennChartInstance;
+
+        function renderVennDiagram() {
+            const ctx = document.getElementById('vennChart').getContext('2d');
+            const tooltipEl = document.getElementById('venn-tooltip');
+
+            const sets = projectData.archetypePopulations.map(ap => ({
+                sets: ap.sets,
+                value: ap.size
+            }));
+
+            const categoryMap = new Map(projectData.categories.map(c => [c.id, c]));
+
+            if(vennChartInstance) {
+                vennChartInstance.destroy();
+            }
+
+            vennChartInstance = new Chart(ctx, {
+                type: 'venn',
+                data: {
+                    labels: projectData.categories.map(c => c.label),
+                    datasets: [{
+                        data: sets,
+                        backgroundColor: projectData.categories.map(c => `${c.color}BF`),
+                        borderColor: projectData.categories.map(c => c.color),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                           display: true,
+                           position: 'bottom',
+                           labels: {
+                               color: '#d1d5db',
+                               font: {
+                                   size: 14,
+                               }
+                           }
+                        },
+                        tooltip: {
+                            enabled: false,
+                            external: function(context) {
+                                const {chart, tooltip} = context;
+                                if (tooltip.opacity === 0) {
+                                    tooltipEl.style.opacity = 0;
+                                    return;
+                                }
+
+                                const setItem = tooltip.dataPoints[0]?.element?.$context?.dataset.data.find(d => JSON.stringify(d.sets.sort()) === JSON.stringify(tooltip.dataPoints[0].element.sets.sort()));
+                                
+                                if (!setItem) {
+                                     tooltipEl.style.opacity = 0;
+                                     return;
+                                }
+
+                                const populationData = projectData.archetypePopulations.find(p => JSON.stringify(p.sets.sort()) === JSON.stringify(setItem.sets.sort()));
+
+                                let innerHtml = `<div class="font-bold text-white mb-2">Intersection</div>`;
+                                
+                                const setNames = setItem.sets.map(s => categoryMap.get(s)?.label || s).join(' & ');
+                                innerHtml += `<p class="text-sm text-gray-300"><span class="font-semibold">${setNames}</span></p>`;
+                                innerHtml += `<p class="text-lg font-bold text-white mt-1">${setItem.value} people</p>`;
+                                
+                                if (populationData && populationData.metaArchetypes.length > 0) {
+                                    innerHtml += `<p class="text-xs text-gray-400 mt-2">Exemplified by: ${populationData.metaArchetypes.slice(0, 2).join(', ')}...</p>`;
+                                }
+                                
+                                tooltipEl.innerHTML = innerHtml;
+                                const position = chart.canvas.getBoundingClientRect();
+                                tooltipEl.style.opacity = 1;
+                                tooltipEl.style.left = position.left + window.pageXOffset + tooltip.caretX + 'px';
+                                tooltipEl.style.top = position.top + window.pageYOffset + tooltip.caretY + 'px';
+                                tooltipEl.style.transform = 'translate(-50%, -110%)';
+                            }
+                        }
+                    },
+                    layout: {
+                        padding: 20
+                    },
+                     backgroundColor: projectData.wormPoop.color,
+                }
+            });
+        }
+
+        function renderUpSetPlot() {
+            const container = d3.select("#upsetChart");
+            container.selectAll("*").remove();
+
+            const allElements = new Set(projectData.categories.map(c => c.id));
+            const subsets = projectData.archetypePopulations;
+            
+            const margin = {top: 80, right: 40, bottom: 80, left: 40};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = 400;
+
+            const svg = container.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(subsets, d => d.size)])
+                .range([height, 0]);
+
+            const x = d3.scaleBand()
+                .domain(subsets.map(d => JSON.stringify(d.sets.sort())))
+                .range([0, width])
+                .padding(0.2);
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x).tickFormat(""))
+                .selectAll("line")
+                .style("stroke", "#4b5563");
+
+            svg.append("g")
+                .call(d3.axisLeft(y))
+                 .selectAll("text")
+                .style("fill", "#9ca3af");
+            
+            svg.selectAll("text")
+                .style("fill", "#9ca3af");
+             svg.selectAll("path, line")
+                .style("stroke", "#4b5563");
+
+            const tooltipEl = d3.select("#upset-tooltip");
+
+            svg.selectAll("rect")
+                .data(subsets)
+                .enter()
+                .append("rect")
+                .attr("x", d => x(JSON.stringify(d.sets.sort())))
+                .attr("y", d => y(d.size))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.size))
+                .attr("fill", "#4f46e5")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("fill", "#6366f1");
+                    let innerHtml = `<div class="font-bold text-white mb-2">Intersection</div>`;
+                    const setNames = d.sets.map(s => projectData.categories.find(c=>c.id === s).label.split('(')[0].trim()).join(' & ');
+                    innerHtml += `<p class="text-sm text-gray-300"><span class="font-semibold">${setNames}</span></p>`;
+                    innerHtml += `<p class="text-lg font-bold text-white mt-1">${d.size} people</p>`;
+                    if (d.metaArchetypes.length > 0) {
+                        innerHtml += `<p class="text-xs text-gray-400 mt-2">Exemplified by: ${d.metaArchetypes.slice(0, 2).join(', ')}...</p>`;
+                    }
+                    tooltipEl.html(innerHtml)
+                        .style("opacity", 1)
+                        .style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(d) {
+                    d3.select(this).attr("fill", "#4f46e5");
+                    tooltipEl.style("opacity", 0);
+                });
+
+            const categoryArray = Array.from(allElements);
+            const combinationDots = svg.append("g")
+              .selectAll("g")
+              .data(subsets)
+              .enter()
+              .append("g")
+                .attr("transform", d => `translate(${x(JSON.stringify(d.sets.sort())) + x.bandwidth()/2}, ${height + 20})`);
+            
+            combinationDots.selectAll("circle")
+              .data(d => categoryArray.map(cat => ({ key: cat, active: d.sets.includes(cat) })))
+              .enter()
+              .append("circle")
+                .attr("cy", (d, i) => i * 20)
+                .attr("r", 5)
+                .attr("fill", d => d.active ? projectData.categories.find(c=>c.id === d.key).color : "#4b5563");
+            
+            combinationDots.filter((d, i) => i < subsets.length -1)
+                .selectAll("line.connector")
+                .data(d => {
+                     const activeIndices = categoryArray.map((cat, i) => d.sets.includes(cat) ? i : -1).filter(i => i !== -1);
+                     if (activeIndices.length > 1) {
+                         return [d3.extent(activeIndices)];
+                     }
+                     return [];
+                })
+                .enter()
+                .append("line")
+                .attr("class", "connector")
+                .attr("y1", d => d[0] * 20)
+                .attr("y2", d => d[1] * 20)
+                .attr("stroke", "#9ca3af")
+                .attr("stroke-width", 2);
+
+            const catLabels = svg.append("g")
+                .attr("transform", `translate(-10, ${height + 20})`);
+            
+            catLabels.selectAll("text")
+                .data(categoryArray)
+                .enter()
+                .append("text")
+                .attr("y", (d,i) => i * 20 + 4)
+                .attr("x", -5)
+                .text(d => projectData.categories.find(c=>c.id === d).label.split('(')[0].trim())
+                .style("text-anchor", "end")
+                .style("font-size", "12px")
+                .style("fill", "#d1d5db");
+        }
+
+        function renderArchetypeCards() {
+            const container = document.getElementById('archetype-details');
+            container.innerHTML = '';
+            projectData.metaArchetypeDetails.slice(0, 12).forEach(archetype => {
+                const card = document.createElement('div');
+                card.className = 'glassmorphism p-5 rounded-xl flex flex-col justify-between';
+                
+                let ratioHtml = `
+                    <div class="w-full bg-gray-700 rounded-full h-2.5 mb-4 flex">
+                        <div class="h-2.5 rounded-l-full" style="width: ${archetype.ratio[0]}%; background-color: ${projectData.categories[0].color};"></div>
+                        <div class="h-2.5" style="width: ${archetype.ratio[1]}%; background-color: ${projectData.categories[1].color};"></div>
+                        <div class="h-2.5 rounded-r-full" style="width: ${archetype.ratio[2]}%; background-color: ${projectData.categories[2].color};"></div>
+                    </div>
+                `;
+
+                card.innerHTML = `
+                    <div>
+                        <h4 class="text-xl font-bold text-white">${archetype.name}</h4>
+                        <p class="text-xs font-semibold text-gray-400 mb-3">[Q:${archetype.ratio[0]}% SH:${archetype.ratio[1]}% S:${archetype.ratio[2]}%]</p>
+                        <p class="text-sm text-gray-400 mb-4">${archetype.description}</p>
+                    </div>
+                    ${ratioHtml}
+                `;
+                container.appendChild(card);
+            });
+        }
+        
+        vennToggle.addEventListener('click', () => {
+            vennView.classList.remove('hidden');
+            upsetView.classList.add('hidden');
+            vennToggle.classList.add('active-toggle');
+            upsetToggle.classList.remove('active-toggle');
+        });
+
+        upsetToggle.addEventListener('click', () => {
+            vennView.classList.add('hidden');
+            upsetView.classList.remove('hidden');
+            vennToggle.classList.remove('active-toggle');
+            upsetToggle.classList.add('active-toggle');
+            renderUpSetPlot();
+        });
+
+        renderVennDiagram();
+        renderArchetypeCards();
+    });
+    </script>
+</body>
+</html>
